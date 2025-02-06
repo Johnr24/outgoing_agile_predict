@@ -2,16 +2,16 @@ import xgboost as xg
 from sklearn.metrics import mean_squared_error as MSE
 import numpy as np
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from ...models import History, PriceHistory, Forecasts, ForecastData, AgileData, Nordpool, UpdateErrors
 
 from config.utils import *
 from config.settings import GLOBAL_SETTINGS
 
-DAYS_TO_INCLUDE = 7
+DAYS_TO_INCLUDE = 30
 MODEL_ITERS = 50
 MIN_HIST = 7
-MAX_HIST = 28
+MAX_HIST = 80
 
 
 
@@ -61,8 +61,23 @@ class Command(BaseCommand):
             action="append",
         )
 
+        parser.add_argument(
+            "--reference_date",
+            help="Run the update as if from this date (format: YYYY-MM-DD). If not provided, uses current date.",
+        )
+
     def handle(self, *args, **options):
         debug = options.get("debug", False)
+        reference_date = options.get("reference_date")
+        
+        if reference_date:
+            try:
+                reference_time = pd.Timestamp(reference_date, tz="GB")
+                # Monkey patch Timestamp.now() for the duration of this run
+                original_now = pd.Timestamp.now
+                pd.Timestamp.now = lambda tz=None: reference_time
+            except ValueError as e:
+                raise CommandError(f"Invalid reference_date format. Please use YYYY-MM-DD. Error: {e}")
 
         no_forecast = options.get("no_forecast", False)
         no_hist = options.get("no_hist", False)
@@ -135,7 +150,35 @@ class Command(BaseCommand):
         else:
             print("None")
 
-        hist = pd.concat([hist, new_hist]).sort_index()
+        print("\nDataFrame information:")
+        if len(hist) > 0:
+            print("\nhist info:")
+            print(hist.info())
+            print("\nhist columns:", hist.columns.tolist())
+        
+        if len(new_hist) > 0:
+            print("\nnew_hist info:")
+            print(new_hist.info())
+            print("\nnew_hist columns:", new_hist.columns.tolist())
+
+        # First ensure each dataframe has unique indices
+        if len(hist) > 0:
+            hist = hist[~hist.index.duplicated(keep='last')]
+        if len(new_hist) > 0:
+            new_hist = new_hist[~new_hist.index.duplicated(keep='last')]
+
+        # Ensure columns match
+        if len(hist) > 0 and len(new_hist) > 0:
+            # Get common columns
+            common_cols = list(set(hist.columns) & set(new_hist.columns))
+            hist = hist[common_cols]
+            new_hist = new_hist[common_cols]
+            print("\nCommon columns:", common_cols)
+
+        # Now concatenate
+        combined_hist = pd.concat([hist, new_hist])
+        combined_hist = combined_hist[~combined_hist.index.duplicated(keep='last')].sort_index()
+        hist = combined_hist
 
         if debug:
             print("Getting Historic Prices")
@@ -157,22 +200,19 @@ class Command(BaseCommand):
             df_to_Model(new_prices, PriceHistory)
             prices = pd.concat([prices, new_prices]).sort_index()
 
-        nordpool = pd.DataFrame(get_nordpool(start=prices.index[-1] + pd.Timedelta("30min"))).set_axis(
-            ["day_ahead"], axis=1
-        )
-        if len(nordpool)>0:
-            print(f"Hourly day ahead data used for period: {nordpool.index[0].strftime("%d-%b %H:%M")} - {nordpool.index[-1].strftime("%d-%b %H:%M")}")
-        nordpool["agile"] = day_ahead_to_agile(nordpool["day_ahead"])
+        nordpool_data = get_nordpool(start=prices.index[-1] + pd.Timedelta("30min"))
+        if nordpool_data is not None:
+            nordpool = pd.DataFrame(nordpool_data).set_axis(["day_ahead"], axis=1)
+            if len(nordpool) > 0:
+                print(f"Hourly day ahead data used for period: {nordpool.index[0].strftime('%d-%b %H:%M')} - {nordpool.index[-1].strftime('%d-%b %H:%M')}")
+                nordpool["agile"] = day_ahead_to_agile(nordpool["day_ahead"])
+                prices = pd.concat([prices, nordpool]).sort_index()
+        else:
+            print("No Nordpool data available")
 
         if debug:
             print(f"Database prices:\n{prices}")
             print(f"New prices:\n{prices}")
-            print(f"Nordpool prices:\n{prices}")
-
-        prices = pd.concat([prices, nordpool]).sort_index()
-
-        if debug:
-            print(f"Merged prices:\n{prices}")
 
         if drop_last > 0:
             print(f"drop_last: {drop_last}")
@@ -319,3 +359,7 @@ class Command(BaseCommand):
                 print(f"\n\nAdded Forecast: {this_forecast.id:>4d}: {this_forecast.name}")
             except:
                 print("No forecast added")
+
+        if reference_date:
+            # Restore the original Timestamp.now function
+            pd.Timestamp.now = original_now

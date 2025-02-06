@@ -20,59 +20,59 @@ RETRY_CODES = [
 regions = {
     "A": {
         "name": "Eastern England",
-        "factors": (0.21, 13),
+        "factors": (0.95, 1.09, 7.04),
     },
     "B": {
         "name": "East Midlands",
-        "factors": (0.20, 14),
+        "factors": (0.94, 0.78, 6.27),
     },
     "C": {
         "name": "London",
-        "factors": (0.20, 12),
+        "factors": (0.95, 1.30, 5.93),
     },
     "D": {
         "name": "Merseyside and Northern Wales",
-        "factors": (0.22, 13),
+        "factors": (0.97, 1.26, 5.97),
     },
     "E": {
         "name": "West Midlands",
-        "factors": (0.21, 11),
+        "factors": (0.94, 0.77, 6.50),
     },
     "F": {
         "name": "North Eastern England",
-        "factors": (0.21, 12),
+        "factors": (0.95, 0.87, 4.88),
     },
     "G": {
         "name": "North Western England",
-        "factors": (0.21, 12),
+        "factors": (0.96, 1.10, 5.89),
     },
     "H": {
         "name": "Southern England",
-        "factors": (0.21, 12),
+        "factors": (0.94, 0.93, 7.05),
     },
     "J": {
         "name": "South Eastern England",
-        "factors": (0.22, 12),
+        "factors": (0.94, 1.09, 7.41),
     },
     "K": {
         "name": "Southern Wales",
-        "factors": (0.22, 12),
+        "factors": (0.94, 0.97, 5.46),
     },
     "L": {
         "name": "South Western England",
-        "factors": (0.23, 11),
+        "factors": (0.93, 0.83, 7.14),
     },
     "M": {
         "name": "Yorkshire",
-        "factors": (0.20, 13),
+        "factors": (0.96, 0.72, 5.78),
     },
     "N": {
         "name": "Southern Scotland",
-        "factors": (0.21, 13),
+        "factors": (0.97, 0.90, 3.85),
     },
     "P": {
         "name": "Northern Scotland",
-        "factors": (0.24, 12),
+        "factors": (0.96, 1.36, 2.68),
     },
 }
 
@@ -91,12 +91,23 @@ def day_ahead_to_agile(df, reverse=False, region="G"):
     x = pd.DataFrame(df).set_axis(["In"], axis=1)
     x["Out"] = x["In"]
     x["Peak"] = (x.index.hour >= 16) & (x.index.hour < 19)
+    
     if reverse:
-        x.loc[x["Peak"], "Out"] -= regions[region]["factors"][1]
+        # Remove peak adder first
+        x.loc[x["Peak"], "Out"] -= regions[region]["factors"][2]
+        # Remove all-day adder
+        x["Out"] -= regions[region]["factors"][1]
+        # Divide by multiplier
         x["Out"] /= regions[region]["factors"][0]
     else:
+        # Apply multiplier first
         x["Out"] *= regions[region]["factors"][0]
-        x.loc[x["Peak"], "Out"] += regions[region]["factors"][1]
+        # Add all-day adder
+        x["Out"] += regions[region]["factors"][1]
+        # Add peak adder
+        x.loc[x["Peak"], "Out"] += regions[region]["factors"][2]
+        # Floor at 0
+        x["Out"] = x["Out"].clip(lower=0)
 
     if reverse:
         name = "day_ahead"
@@ -108,7 +119,7 @@ def day_ahead_to_agile(df, reverse=False, region="G"):
 
 def get_agile(start=pd.Timestamp("2023-07-01"), tz="GB", region="G"):
     start = pd.Timestamp(start).tz_convert("UTC")
-    product = "AGILE-22-08-31"
+    product = "AGILE-OUTGOING-19-05-13"
     df = pd.DataFrame()
     url = f"{OCTOPUS_PRODUCT_URL}{product}"
 

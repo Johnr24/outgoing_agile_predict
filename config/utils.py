@@ -201,16 +201,16 @@ def get_latest_history(start):
             "params": {
                 "latitude": 54.0,
                 "longitude": 2.3,
-                "start_date": (pd.Timestamp.now().normalize() - pd.Timedelta("5D")).strftime("%Y-%m-%d"),
-                "end_date": pd.Timestamp.now().normalize().strftime("%Y-%m-%d"),
-                "hourly": ["temperature_2m", "wind_speed_10m", "direct_radiation"],
+                "current": "temperature_2m",
+                "minutely_15": ["temperature_2m", "wind_speed_10m", "direct_radiation"],
+                "forecast_days": 2,
             },
-            "record_path": ["hourly"],
             "date_col": "time",
             "tz": "UTC",
             "resample": "30min",
+            "record_path": ["minutely_15"],
             "cols": ["temperature_2m", "wind_speed_10m", "direct_radiation"],
-            "rename": ["temp_2m_f", "wind_10m_f", "rad_f"],
+            "rename": ["temp_2m", "wind_10m", "rad"],
         },
     ]
 
@@ -220,6 +220,9 @@ def get_latest_history(start):
     for x in history_data:
         data, e = DataSet(**x).download()
         if len(data) > 0:
+            # Ensure column names are unique by adding a suffix for forecast data
+            if x.get("url") == "https://api.open-meteo.com/v1/forecast":
+                data = data.add_suffix('_f')
             downloaded_data += [data]
         else:
             download_errors += [e]
@@ -233,13 +236,14 @@ def get_latest_history(start):
         hist["demand"] = hist["ND"]
     hist.index = pd.to_datetime(hist.index)
     hist = hist.drop("ND", axis=1).sort_index()
+    hist = hist[~hist.index.duplicated(keep='last')]  # Keep the last occurrence of any duplicate timestamps
 
     meteo_cols = ["temp_2m", "wind_10m", "rad"]
 
     for c in [m for m in meteo_cols if m in hist.columns]:
-        hist.loc[hist[c].isnull(), c] = hist.loc[hist[c].isnull(), f"{c}_f"]
-
-    hist = hist.drop([f"{c}_f" for c in meteo_cols if c in hist.columns], axis=1)
+        if f"{c}_f" in hist.columns:
+            hist.loc[hist[c].isnull(), c] = hist.loc[hist[c].isnull(), f"{c}_f"]
+            hist = hist.drop(f"{c}_f", axis=1)
 
     all_cols = ["total_wind", "bm_wind", "solar", "demand"] + meteo_cols
     missing_cols = [c for c in all_cols if c not in hist.columns]
@@ -286,7 +290,7 @@ def get_latest_forecast():
                 "longitude": 2.3,
                 "current": "temperature_2m",
                 "minutely_15": ["temperature_2m", "wind_speed_10m", "direct_radiation"],
-                "forecast_days": 14,
+                "forecast_days": 2,
             },
             "date_col": "time",
             "tz": "UTC",
@@ -440,7 +444,7 @@ class DataSet:
 
 def get_agile(start=pd.Timestamp("2023-07-01"), tz="GB", region="G"):
     start = pd.Timestamp(start).tz_convert("UTC")
-    product = "AGILE-22-08-31"
+    product = "AGILE-OUTGOING-19-05-13"
     df = pd.DataFrame()
     url = f"{OCTOPUS_PRODUCT_URL}{product}"
 
@@ -450,7 +454,6 @@ def get_agile(start=pd.Timestamp("2023-07-01"), tz="GB", region="G"):
 
     x = []
     while end > start:
-        # print(start, end)
         params = {
             "page_size": 1500,
             "order_by": "period",
@@ -459,9 +462,16 @@ def get_agile(start=pd.Timestamp("2023-07-01"), tz="GB", region="G"):
         }
 
         r = requests.get(url, params=params)
-        if "results" in r.json():
+        if "results" in r.json() and r.json()["results"]:
             x = x + r.json()["results"]
-        end = pd.Timestamp(x[-1]["valid_from"]).ceil("24h")
+            end = pd.Timestamp(x[-1]["valid_from"]).ceil("24h")
+        else:
+            print(f"No Agile tariff data available for period starting {start.strftime('%Y-%m-%d %H:%M')}")
+            break
+
+    if not x:
+        print("No Agile tariff data found for the specified time period")
+        return pd.Series(name="agile")
 
     df = pd.DataFrame(x).set_index("valid_from")[["value_inc_vat"]]
     df.index = pd.to_datetime(df.index)
@@ -472,6 +482,9 @@ def get_agile(start=pd.Timestamp("2023-07-01"), tz="GB", region="G"):
 
 
 def day_ahead_to_agile(df, reverse=False, region="G"):
+    if isinstance(df, pd.Series) and len(df) == 0:
+        return pd.Series(name="day_ahead" if reverse else "agile")
+        
     df.index = df.index.tz_convert("GB")
     x = pd.DataFrame(df).set_axis(["In"], axis=1)
     x["Out"] = x["In"]

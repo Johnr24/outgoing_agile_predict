@@ -9,11 +9,11 @@ from .serializers import PriceForecastSerializer, PriceForecastRegionSerializer
 
 
 class PriceForecastAPIView(generics.ListAPIView):
-    ids = [f.id for f in Forecasts.objects.all().order_by("-created_at")[:3]]
-
-    queryset = Forecasts.objects.filter(id__in=ids)
-    # queryset = Forecasts.objects.all()
     serializer_class = PriceForecastSerializer
+
+    def get_queryset(self):
+        ids = [f.id for f in Forecasts.objects.all().order_by("-created_at")[:3]]
+        return Forecasts.objects.filter(id__in=ids)
 
 
 class PriceForecastRegionAPIView(generics.ListAPIView):

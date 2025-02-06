@@ -151,7 +151,7 @@ class GraphFormView(FormView):
     def update_chart(self, context, **kwargs):
         region = context["region"]
         forecasts_to_plot = kwargs.get("forecasts_to_plot")
-        days_to_plot = int(kwargs.get("days_to_plot", 7))
+        days_to_plot = int(kwargs.get("days_to_plot", 14))
         show_generation_and_demand = kwargs.get("show_generation_and_demand", True)
         show_range = kwargs.get("show_range_on_most_recent_forecast", True)
         show_overlap = kwargs.get("show_forecast_overlap", False)

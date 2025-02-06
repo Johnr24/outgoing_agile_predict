@@ -6,12 +6,12 @@ from config.settings import GLOBAL_SETTINGS
 from .models import Forecasts
 
 # REGION_CHOICES = [(r, GLOBAL_SETTINGS["REGIONS"][r]["name"]) for r in GLOBAL_SETTINGS["REGIONS"]]
-forecast_choices = [(f.id, f.name) for f in Forecasts.objects.all().order_by("-created_at")][:14]
 
 
 class ForecastForm(forms.Form):
     forecasts_to_plot = forms.MultipleChoiceField(
-        initial=forecast_choices[0], widget=forms.CheckboxSelectMultiple, choices=forecast_choices
+        widget=forms.CheckboxSelectMultiple,
+        choices=[],  # We'll set these dynamically
     )
     days_to_plot = forms.ChoiceField(
         initial=("7", "7"), choices=[(f"{i}", f"{i}") for i in range(1, 14)], required=False
@@ -34,6 +34,13 @@ class ForecastForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super(ForecastForm, self).__init__(*args, **kwargs)
+        
+        # Set up dynamic choices
+        forecast_choices = [(f.id, f.name) for f in Forecasts.objects.all().order_by("-created_at")][:14]
+        self.fields['forecasts_to_plot'].choices = forecast_choices
+        if forecast_choices:
+            self.fields['forecasts_to_plot'].initial = [forecast_choices[0][0]]
+        
         self.helper = FormHelper()
         self.helper.form_tag = True
         # self.helper.form_show_labels = False
@@ -49,7 +56,7 @@ class ForecastForm(forms.Form):
                     Field("show_range_on_most_recent_forecast"),
                     Field(
                         "show_forecast_overlap",
-                        title=self.base_fields["show_forecast_overlap"].help_text,
+                        title=self.fields["show_forecast_overlap"].help_text,
                         data_bs_toggle="tooltip",
                         data_bs_placement="top",
                     ),
