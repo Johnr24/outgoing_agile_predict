@@ -22,7 +22,7 @@
                         - platform: rest
                             <span "highlight-color">resource: </span>https://prices.fly.dev/api/G
                             scan_interval: 3600
-                            name: Agile Predict
+                            name: Agile Outgoing Predict
                             value_template: {% verbatim %} "{{ value_json[0]['name']}}"{% endverbatim %} 
                             json_attributes_path: "$[0]"
                             json_attributes:

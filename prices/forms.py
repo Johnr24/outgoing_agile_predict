@@ -24,7 +24,7 @@ class ForecastForm(forms.Form):
     show_forecast_overlap = forms.BooleanField(
         initial=False,
         required=False,
-        help_text="Show forecast prices which have now been superseded by the actual Agile prices",
+        help_text="Show forecast prices which have now been superseded by the actual Outgoing Agile prices",
     )
     show_range_on_most_recent_forecast = forms.BooleanField(
         initial=True,

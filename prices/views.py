@@ -56,7 +56,7 @@ class StatsView(TemplateView):
         figure = make_subplots(
             rows=2,
             cols=1,
-            subplot_titles=("Agile Price", "Error HeatMap"),
+            subplot_titles=("Outgoing Agile Price", "Error HeatMap"),
             shared_xaxes=True,
             vertical_spacing=0.05,
         )
@@ -107,7 +107,7 @@ class StatsView(TemplateView):
         )
 
         layout = dict(
-            yaxis={"title": "Agile Price [p/kWh]"},
+            yaxis={"title": "Outgoing Agile Price [p/kWh]"},
             margin={
                 "r": 5,
                 "t": 50,
@@ -249,7 +249,7 @@ class GraphFormView(FormView):
             figure = make_subplots(
                 rows=2,
                 cols=1,
-                subplot_titles=("Agile Price", "Generation and Demand"),
+                subplot_titles=("Outgoing Agile Price", "Generation and Demand"),
                 shared_xaxes=True,
                 vertical_spacing=0.1,
             )
@@ -347,7 +347,7 @@ class GraphFormView(FormView):
             figure.append_trace(d, row=1, col=1)
 
         layout = dict(
-            yaxis={"title": "Agile Price [p/kWh]"},
+            yaxis={"title": "Outgoing Agile Price [p/kWh]"},
             margin={
                 "r": 5,
                 "t": 50,
@@ -363,7 +363,7 @@ class GraphFormView(FormView):
             paper_bgcolor="#343a40",
         )
         figure.update_yaxes(
-            title_text="Agile Price [p/kWh]",
+            title_text="Outgoing Agile Price [p/kWh]",
             row=1,
             col=1,
             fixedrange=True,

@@ -2,7 +2,7 @@ sensor:
   - platform: rest
     resource: https://prices.fly.dev/api/G
     scan_interval: 3600
-    name: Agile Predict
+    name: Agile Outgoing Predict
     value_template: "{{ value_json[0]['name']}}"
     json_attributes_path: "$[0]"
     json_attributes:
