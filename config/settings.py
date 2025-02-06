@@ -156,7 +156,7 @@ STORAGES = {
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-CSRF_TRUSTED_ORIGINS = ["https://*.fly.dev", "https://*.agilepredict.com"]
+CSRF_TRUSTED_ORIGINS = ["https://outgoing.shed.gay"]
 
 
 CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"  # new

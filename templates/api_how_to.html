@@ -9,8 +9,8 @@
                     <h5 class="card-title">API Access</h5>
                     <p>
                         RESTful API access to the three most recent price forecasts is available via
-                        <a href="http://agilepredict.com/api">prices.fly.dev/api</a> for all regions or via
-                        <a href="http://agilepredict/api/{REGION}">prices.fly.dev/api/{REGION}</a> for a given region.
+                        <a href="https://outgoing.shed.gay/api">outgoing.shed.gay/api</a> for all regions or via
+                        <a href="https://outgoing.shed.gay/api/{REGION}">outgoing.shed.gay/api/{REGION}</a> for a given region.
                     </p>
                 </div>
             </div>
@@ -43,7 +43,7 @@
                             <pre class="card-text mb-3"><code>
 <span class="text-primary">sensor:</span>
 - platform: rest
-    resource: https://prices.fly.dev/api/G
+    resource: https://outgoing.shed.gay/api/G
     scan_interval: 3600
     name: Agile Outgoing Predict
     value_template: {% verbatim %} "{{ value_json[0]['name']}}" {% endverbatim %}

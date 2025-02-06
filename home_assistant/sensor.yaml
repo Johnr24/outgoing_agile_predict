@@ -1,6 +1,6 @@
 sensor:
   - platform: rest
-    resource: https://prices.fly.dev/api/G
+    resource: https://outgoing.shed.gay/api/G
     scan_interval: 3600
     name: Agile Outgoing Predict
     value_template: "{{ value_json[0]['name']}}"
