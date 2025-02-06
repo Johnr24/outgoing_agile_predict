@@ -203,7 +203,7 @@ def get_latest_history(start):
                 "longitude": 2.3,
                 "current": "temperature_2m",
                 "minutely_15": ["temperature_2m", "wind_speed_10m", "direct_radiation"],
-                "forecast_days": 2,
+                "forecast_days": 14,
             },
             "date_col": "time",
             "tz": "UTC",
@@ -260,7 +260,10 @@ def get_latest_forecast():
 
     forecast_data = [
         {
-            "url": "https://api.nationalgrideso.com/api/3/action/datastore_search?resource_id=93c3048e-1dab-4057-a2a9-417540583929&limit=1000",
+            "url": "https://api.nationalgrideso.com/api/3/action/datastore_search_sql",
+            "params": {
+                "sql": f"SELECT * FROM \"93c3048e-1dab-4057-a2a9-417540583929\" WHERE \"Datetime\" >= '{pd.Timestamp.now(tz='GB').strftime('%Y-%m-%d')}' ORDER BY \"Datetime\" ASC"
+            },
             "record_path": ["result", "records"],
             "tz": "GB",
             "date_col": "Datetime",
@@ -268,7 +271,10 @@ def get_latest_forecast():
             "rename": ["bm_wind"],
         },
         {
-            "url": "https://api.nationalgrideso.com/api/3/action/datastore_search?resource_id=db6c038f-98af-4570-ab60-24d71ebd0ae5&limit=1000",
+            "url": "https://api.nationalgrideso.com/api/3/action/datastore_search_sql",
+            "params": {
+                "sql": f"SELECT * FROM \"db6c038f-98af-4570-ab60-24d71ebd0ae5\" WHERE \"DATE_GMT\" >= '{pd.Timestamp.now(tz='GB').strftime('%Y-%m-%d')}' ORDER BY \"DATE_GMT\", \"TIME_GMT\" ASC"
+            },
             "record_path": ["result", "records"],
             "tz": "UTC",
             "cols": ["EMBEDDED_SOLAR_FORECAST", "EMBEDDED_WIND_FORECAST"],
@@ -277,7 +283,10 @@ def get_latest_forecast():
             "time_col": "TIME_GMT",
         },
         {
-            "url": "https://api.nationalgrideso.com/api/3/action/datastore_search?resource_id=7c0411cd-2714-4bb5-a408-adb065edf34d&limit=5000",
+            "url": "https://api.nationalgrideso.com/api/3/action/datastore_search_sql",
+            "params": {
+                "sql": f"SELECT * FROM \"7c0411cd-2714-4bb5-a408-adb065edf34d\" WHERE \"GDATETIME\" >= '{pd.Timestamp.now(tz='GB').strftime('%Y-%m-%d')}' ORDER BY \"GDATETIME\" ASC"
+            },
             "record_path": ["result", "records"],
             "date_col": "GDATETIME",
             "tz": "UTC",
@@ -290,7 +299,7 @@ def get_latest_forecast():
                 "longitude": 2.3,
                 "current": "temperature_2m",
                 "minutely_15": ["temperature_2m", "wind_speed_10m", "direct_radiation"],
-                "forecast_days": 2,
+                "forecast_days": 14,
             },
             "date_col": "time",
             "tz": "UTC",
