@@ -1,6 +1,7 @@
 import xgboost as xg
 from sklearn.metrics import mean_squared_error as MSE
 import numpy as np
+import os
 
 from django.core.management.base import BaseCommand, CommandError
 from ...models import History, PriceHistory, Forecasts, ForecastData, AgileData, Nordpool, UpdateErrors
@@ -220,7 +221,7 @@ class Command(BaseCommand):
             prices = prices.iloc[:-drop_last]
             print(f"len: {len(prices)} last:{prices.index[-1]}")
 
-        new_name = pd.Timestamp.now(tz="GB").strftime("%Y-%m-%d %H:%M")
+        new_name = pd.Timestamp.now(tz="GB").strftime("%Y-%m-%d %H:%M:%S")
         if new_name not in [f.name for f in Forecasts.objects.all()]:
             base_forecasts = Forecasts.objects.exclude(id__in=ignore_forecast).order_by("-created_at")
             last_forecasts ={forecast.created_at.date(): forecast.id for forecast in base_forecasts.order_by("created_at")}
@@ -229,7 +230,11 @@ class Command(BaseCommand):
 
             if debug:
                 print("Getting latest Forecast")
+                print("Attempting to get forecast data...")
             fc, missing_fc = get_latest_forecast()
+            if debug:
+                print(f"Forecast data received. Rows: {len(fc) if fc is not None else 0}")
+                print(f"Missing columns: {missing_fc}")
 
             if len(missing_fc) > 0:
                 print(">>> ERROR: Unable to run forecast due to missing columns:", end="")
@@ -344,7 +349,10 @@ class Command(BaseCommand):
                     fc = fc.drop(day_ahead_cols, axis=1)
                     fc.drop(["time", "day_of_week", "day_ahead_low", "day_ahead_high"], axis=1, inplace=True)
 
-                    this_forecast = Forecasts(name=new_name)
+                    # Determine if this is a cron job by checking if the script is being run by cron
+                    is_cron = 'CRON' in os.environ
+                    
+                    this_forecast = Forecasts(name=new_name, source='cron' if is_cron else 'manual')
                     this_forecast.save()
                     fc["forecast"] = this_forecast
                     ag["forecast"] = this_forecast

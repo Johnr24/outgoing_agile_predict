@@ -34,7 +34,7 @@ RUN chmod +x /code/entrypoint.sh && \
     dos2unix /code/entrypoint.sh
 
 # Setup cron job
-RUN echo "15 6,10,16,22 * * * cd /code && python manage.py update >> /var/log/cron.log 2>&1" > /etc/cron.d/update-cron && \
+RUN echo "15 6,10,16,22 * * * CRON=1 cd /code && /usr/local/bin/python /code/manage.py update >> /var/log/cron.log 2>&1" > /etc/cron.d/update-cron && \
     chmod 0644 /etc/cron.d/update-cron && \
     crontab /etc/cron.d/update-cron
 
