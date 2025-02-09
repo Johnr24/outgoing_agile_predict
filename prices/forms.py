@@ -36,7 +36,7 @@ class ForecastForm(forms.Form):
         super(ForecastForm, self).__init__(*args, **kwargs)
         
         # Set up dynamic choices
-        forecast_choices = [(f.id, f"{f.name} ({f.source})") for f in Forecasts.objects.all().order_by("-created_at")][:14]
+        forecast_choices = [(f.id, f.name) for f in Forecasts.objects.all().order_by("-created_at")][:14]
         self.fields['forecasts_to_plot'].choices = forecast_choices
         if forecast_choices:
             self.fields['forecasts_to_plot'].initial = [forecast_choices[0][0]]

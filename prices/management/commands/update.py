@@ -221,7 +221,7 @@ class Command(BaseCommand):
             prices = prices.iloc[:-drop_last]
             print(f"len: {len(prices)} last:{prices.index[-1]}")
 
-        new_name = pd.Timestamp.now(tz="GB").strftime("%Y-%m-%d %H:%M:%S")
+        new_name = pd.Timestamp.now(tz="GB").strftime("%Y-%m-%d %H:%M")
         if new_name not in [f.name for f in Forecasts.objects.all()]:
             base_forecasts = Forecasts.objects.exclude(id__in=ignore_forecast).order_by("-created_at")
             last_forecasts ={forecast.created_at.date(): forecast.id for forecast in base_forecasts.order_by("created_at")}
