@@ -186,10 +186,17 @@ class Command(BaseCommand):
 
         prices, start = model_to_df(PriceHistory)
         agile = get_agile(start=start)
-
         day_ahead = day_ahead_to_agile(agile, reverse=True)
-
-        new_prices = pd.concat([day_ahead, agile], axis=1)
+        
+        # Calculate both outgoing and incoming prices
+        agile_outgoing = day_ahead_to_agile(day_ahead)
+        agile_incoming = day_ahead_to_agile_incoming(day_ahead)
+        
+        new_prices = pd.concat([
+            day_ahead.rename('day_ahead'), 
+            agile_outgoing.rename('agile'), 
+            agile_incoming.rename('agile_incoming')
+        ], axis=1)
         if len(prices) > 0:
             new_prices = new_prices[new_prices.index > prices.index[-1]]
 
@@ -200,6 +207,7 @@ class Command(BaseCommand):
             print(new_prices)
             df_to_Model(new_prices, PriceHistory)
             prices = pd.concat([prices, new_prices]).sort_index()
+            prices = prices[~prices.index.duplicated(keep='last')]  # Keep most recent in case of duplicates
 
         nordpool_data = get_nordpool(start=prices.index[-1] + pd.Timedelta("30min"))
         if nordpool_data is not None:
@@ -252,28 +260,31 @@ class Command(BaseCommand):
                     print(fc)
 
                 if len(fc) > 0:
+                    # Initialize prediction storage
+                    outgoing_predictions = {}
+                    incoming_predictions = {}
+                    
                     for i in range(iters):
                         cols = hist.drop(drop_cols, axis=1).columns
 
                         X = hist[cols].iloc[-48 * np.random.randint(min_hist, max_hist) :]
-                        y = prices["day_ahead"].loc[X.index]
+                        y_outgoing = prices["agile"].loc[X.index]  # Train directly on retail outgoing prices
+                        y_incoming = prices["agile_incoming"].loc[X.index]  # Train directly on retail incoming prices
 
                         if not no_hist:
                             X1 = [X.copy()]
-                            y1 = [y.copy()]
+                            y1_outgoing = [y_outgoing.copy()]
+                            y1_incoming = [y_incoming.copy()]
                         else:
                             X1 = []
-                            y1 = []
+                            y1_outgoing = []
+                            y1_incoming = []
 
                         if not no_forecast:
                             for f in base_forecasts:
                                 days_since_forecast = (pd.Timestamp.now(tz="GB") - f.created_at).days
                                 if days_since_forecast < 28:
-
-                                    # if f != this_forecast and days_since_forecast < 14:
                                     df = get_forecast_from_model(forecast=f).loc[: prices.index[-1]]
-                                    # print(prices.loc[df.index])
-                                    # print(df.columns)
 
                                     if len(df) > 0:
                                         rng = np.random.default_rng()
@@ -288,71 +299,105 @@ class Command(BaseCommand):
                                         df = df.iloc[samples]
 
                                         X1.append(df[cols])
-                                        y1.append(prices["day_ahead"].loc[df.index])
+                                        y1_outgoing.append(prices["agile"].loc[df.index])  # Train on retail outgoing prices
+                                        y1_incoming.append(prices["agile_incoming"].loc[df.index])  # Train on retail incoming prices
 
                         X1 = pd.concat(X1)
-                        y1 = pd.concat(y1)
+                        y1_outgoing = pd.concat(y1_outgoing)
+                        y1_incoming = pd.concat(y1_incoming)
 
-                        model = xg.XGBRegressor(
+                        # Train outgoing model
+                        model_outgoing = xg.XGBRegressor(
                             objective="reg:squarederror",
                             booster="dart",
-                            # max_depth=0,
                             gamma=0.3,
                             eval_metric="rmse",
                         )
 
-                        model.fit(X1, y1, verbose=True)
-                        model_day_ahead = pd.Series(index=y1.index, data=model.predict(X1))
+                        model_outgoing.fit(X1, y1_outgoing, verbose=True)
+                        model_agile_outgoing = pd.Series(index=y1_outgoing.index, data=model_outgoing.predict(X1))
 
-                        model_agile = day_ahead_to_agile(model_day_ahead)
-                        rmse = MSE(model_agile, prices["agile"].loc[X1.index]) ** 0.5
+                        # Train incoming model
+                        model_incoming = xg.XGBRegressor(
+                            objective="reg:squarederror",
+                            booster="dart",
+                            gamma=0.3,
+                            eval_metric="rmse",
+                        )
 
-                        print(f"\nInteration: {i+1}", end="")
+                        model_incoming.fit(X1, y1_incoming, verbose=True)
+                        model_agile_incoming = pd.Series(index=y1_incoming.index, data=model_incoming.predict(X1))
+
+                        # Calculate errors - now comparing retail prices directly
+                        rmse_outgoing = MSE(model_agile_outgoing, prices["agile"].loc[X1.index]) ** 0.5
+                        rmse_incoming = MSE(model_agile_incoming, prices["agile_incoming"].loc[X1.index]) ** 0.5
+
+                        print(f"\nIteration: {i+1}", end="")
                         if debug:
                             print("\n--------------\n      ")
-                        print(f" RMS Error: {rmse: 0.2f} p/kWh", end="")
+                        print(f" Outgoing RMS Error: {rmse_outgoing: 0.2f} p/kWh", end="")
+                        print(f" Incoming RMS Error: {rmse_incoming: 0.2f} p/kWh", end="")
                         if debug:
                             print(f"\nLengths: History: {(len(X) / len(X1)*100):0.1f}%")
                             print(f"       Forecasts: {((len(X1) - len(X))/len(X1)*100):0.1f}%")
-                        fc[f"day_ahead_{i}"] = model.predict(fc[cols])
+                        
+                        # Store predictions for this iteration
+                        outgoing_predictions[f"agile_outgoing_{i}"] = model_outgoing.predict(fc[cols])
+                        incoming_predictions[f"agile_incoming_{i}"] = model_incoming.predict(fc[cols])
 
-                    day_ahead_cols = [f"day_ahead_{i}" for i in range(iters)]
-                    fc["day_ahead"] = fc[day_ahead_cols].mean(axis=1)
-                    if iters > 9:
-                        fc["day_ahead_low"] = fc[day_ahead_cols].quantile(0.1, axis=1)
-                        fc["day_ahead_high"] = fc[day_ahead_cols].quantile(0.9, axis=1)
-                    else:
-                        fc["day_ahead_low"] = fc[day_ahead_cols].min(axis=1)
-                        fc["day_ahead_high"] = fc[day_ahead_cols].max(axis=1)
+                    # After all iterations, create prediction DataFrames
+                    outgoing_df = pd.DataFrame(outgoing_predictions, index=fc.index)
+                    incoming_df = pd.DataFrame(incoming_predictions, index=fc.index)
+                    
+                    # Calculate statistics for outgoing predictions
+                    outgoing_stats = pd.DataFrame({
+                        'agile_outgoing': outgoing_df.mean(axis=1),
+                        'agile_outgoing_low': outgoing_df.quantile(0.1, axis=1) if iters > 9 else outgoing_df.min(axis=1),
+                        'agile_outgoing_high': outgoing_df.quantile(0.9, axis=1) if iters > 9 else outgoing_df.max(axis=1)
+                    })
+                    
+                    # Calculate statistics for incoming predictions
+                    incoming_stats = pd.DataFrame({
+                        'agile_incoming': incoming_df.mean(axis=1),
+                        'agile_incoming_low': incoming_df.quantile(0.1, axis=1) if iters > 9 else incoming_df.min(axis=1),
+                        'agile_incoming_high': incoming_df.quantile(0.9, axis=1) if iters > 9 else incoming_df.max(axis=1)
+                    })
+                    
+                    # Combine all results
+                    results = pd.concat([fc, outgoing_stats, incoming_stats], axis=1)
+                    results.loc[:, 'wholesale'] = results['agile_outgoing']  # Using outgoing as reference
 
                     ag = pd.concat(
                         [
                             pd.DataFrame(
-                                index=fc.index,
+                                index=results.index,
                                 data={
                                     "region": region,
-                                    "agile_pred": day_ahead_to_agile(fc["day_ahead"], region=region)
-                                    .astype(float)
-                                    .round(2),
-                                    "agile_low": day_ahead_to_agile(fc["day_ahead_low"], region=region)
-                                    .astype(float)
-                                    .round(2),
-                                    "agile_high": day_ahead_to_agile(fc["day_ahead_high"], region=region)
-                                    .astype(float)
-                                    .round(2),
+                                    "agile_pred": results["agile_outgoing"].astype(float).round(2),
+                                    "agile_low": results["agile_outgoing_low"].astype(float).round(2),
+                                    "agile_high": results["agile_outgoing_high"].astype(float).round(2),
+                                    "agile_incoming_pred": results["agile_incoming"].astype(float).round(2),
+                                    "agile_incoming_low": results["agile_incoming_low"].astype(float).round(2),
+                                    "agile_incoming_high": results["agile_incoming_high"].astype(float).round(2),
                                 },
                             )
                             for region in regions
                         ]
                     )
 
-                    fc = fc.drop(day_ahead_cols, axis=1)
-                    fc.drop(["time", "day_of_week", "day_ahead_low", "day_ahead_high"], axis=1, inplace=True)
+                    # Clean up temporary columns and prepare final DataFrame
+                    columns_to_keep = [col for col in results.columns if not (
+                        col.startswith('agile_outgoing_') or 
+                        col.startswith('agile_incoming_') or 
+                        col in ["time", "day_of_week", "agile_outgoing_low", "agile_outgoing_high",
+                               "agile_incoming_low", "agile_incoming_high"]
+                    )]
+                    fc = results[columns_to_keep].copy()  # Create a clean copy
 
                     this_forecast = Forecasts(name=new_name)
                     this_forecast.save()
-                    fc["forecast"] = this_forecast
-                    ag["forecast"] = this_forecast
+                    fc.loc[:, "forecast"] = this_forecast
+                    ag.loc[:, "forecast"] = this_forecast
                     df_to_Model(fc, ForecastData)
                     df_to_Model(ag, AgileData)
 

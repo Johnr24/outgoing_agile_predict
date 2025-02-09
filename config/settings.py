@@ -203,62 +203,77 @@ GLOBAL_SETTINGS = {
         "X": {
             "name": "National Average",
             "factors": (0.95, 1.00, 6.00),
+            "incoming_factors": (2.1, 12, 13),
         },
         "A": {
             "name": "Eastern England",
             "factors": (0.95, 1.09, 7.04),
+            "incoming_factors": (2.1, 13, 13),
         },
         "B": {
             "name": "East Midlands",
             "factors": (0.94, 0.78, 6.27),
+            "incoming_factors": (2.0, 14, 14),
         },
         "C": {
             "name": "London",
             "factors": (0.95, 1.30, 5.93),
+            "incoming_factors": (2.0, 12, 12),
         },
         "D": {
             "name": "Merseyside and Northern Wales",
             "factors": (0.97, 1.26, 5.97),
+            "incoming_factors": (2.2, 13, 13),
         },
         "E": {
             "name": "West Midlands",
             "factors": (0.94, 0.77, 6.50),
+            "incoming_factors": (2.1, 12, 12),
         },
         "F": {
             "name": "North Eastern England",
             "factors": (0.95, 0.87, 4.88),
+            "incoming_factors": (2.1, 12, 12),
         },
         "G": {
             "name": "North Western England",
             "factors": (0.96, 1.10, 5.89),
+            "incoming_factors": (2.1, 12, 12),
         },
         "H": {
             "name": "Southern England",
             "factors": (0.94, 0.93, 7.05),
+            "incoming_factors": (2.1, 12, 12),
         },
         "J": {
             "name": "South Eastern England",
             "factors": (0.94, 1.09, 7.41),
+            "incoming_factors": (2.2, 12, 12),
         },
         "K": {
             "name": "Southern Wales",
             "factors": (0.94, 0.97, 5.46),
+            "incoming_factors": (2.2, 12, 12),
         },
         "L": {
             "name": "South Western England",
             "factors": (0.93, 0.83, 7.14),
+            "incoming_factors": (2.3, 11, 11),
         },
         "M": {
             "name": "Yorkshire",
             "factors": (0.96, 0.72, 5.78),
+            "incoming_factors": (2.0, 13, 13),
         },
         "N": {
             "name": "Southern Scotland",
             "factors": (0.97, 0.90, 3.85),
+            "incoming_factors": (2.1, 13, 13),
         },
         "P": {
             "name": "Northern Scotland",
             "factors": (0.96, 1.36, 2.68),
+            "incoming_factors": (2.4, 12, 12),
         },
     },
 }

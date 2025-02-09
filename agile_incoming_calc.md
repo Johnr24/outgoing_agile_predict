@@ -7,7 +7,7 @@ To calculate the retail price for your region:
     multiply the wholesale price in p/kWh by the multiplier shown
     For any periods from 4-7pm local time, add the adder shown
     Multiply the price by 1.05 to include VAT
-    Cap the resultant price at 35p/kWh
+    Cap the resultant price at 100/kWh
 
 Region	Multiplier	Adder (4-7pm)
 A	2.1	13

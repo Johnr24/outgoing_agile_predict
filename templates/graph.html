@@ -4,6 +4,13 @@
     <div class="row bg-body text-center">
         <h3>{{region_name}} {%if region != "X" %} (DNO Region {{region}}) {%endif%}</h3>
     </div>
+    {% if error_message %}
+    <div class="row">
+        <div class="alert alert-warning" role="alert">
+            {{ error_message }}
+        </div>
+    </div>
+    {% endif %}
     <div class="row">
         <div class="col-lg-9">
             <div class="row">{% if graph %} {{ graph|safe }} {% endif %}</div>

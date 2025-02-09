@@ -21,6 +21,7 @@ class PriceHistory(models.Model):
     date_time = models.DateTimeField(unique=True)
     day_ahead = models.FloatField()
     agile = models.FloatField()
+    agile_incoming = models.FloatField(default=0)  # Store incoming prices separately
 
 
 class AgileData(models.Model):
@@ -29,6 +30,9 @@ class AgileData(models.Model):
     agile_pred = models.FloatField()
     agile_low = models.FloatField()
     agile_high = models.FloatField()
+    agile_incoming_pred = models.FloatField(default=0)
+    agile_incoming_low = models.FloatField(default=0)
+    agile_incoming_high = models.FloatField(default=0)
     date_time = models.DateTimeField()
 
     def get_absolute_url(self):
@@ -57,7 +61,10 @@ class History(models.Model):
 class ForecastData(models.Model):
     forecast = models.ForeignKey(Forecasts, related_name="data", on_delete=models.CASCADE)
     date_time = models.DateTimeField()
-    day_ahead = models.FloatField()
+    # Rename fields to clearly indicate they are retail prices
+    agile_outgoing = models.FloatField()  # Renamed from day_ahead_outgoing
+    agile_incoming = models.FloatField()  # Renamed from day_ahead_incoming
+    wholesale = models.FloatField()  # Renamed from day_ahead
     bm_wind = models.FloatField()
     solar = models.FloatField()
     emb_wind = models.FloatField()

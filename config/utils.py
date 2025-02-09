@@ -26,7 +26,6 @@ RETRY_CODES = [
 
 regions = GLOBAL_SETTINGS["REGIONS"]
 
-
 def get_nordpool(start):
     url = "https://www.nordpoolgroup.com/api/marketdata/page/325?currency=GBP"
 
@@ -529,28 +528,73 @@ def day_ahead_to_agile(df, reverse=False, region="G"):
     return x["Out"].rename(name)
 
 
+def day_ahead_to_agile_incoming(df, reverse=False, region="G"):
+    df.index = df.index.tz_convert("GB")
+    x = pd.DataFrame(df).set_axis(["In"], axis=1)
+    x["Out"] = x["In"]
+    x["Peak"] = (x.index.hour >= 16) & (x.index.hour < 19)
+    
+    if reverse:
+        # If we're starting with Octopus API prices, they're already processed
+        # So we just return them as is
+        if isinstance(df, pd.Series) and df.name == "agile":
+            return x["Out"].rename("day_ahead")
+            
+        # Otherwise, we're converting our calculated Agile prices back to wholesale
+        # First remove VAT
+        x["Out"] /= 1.05
+        # Remove peak adder during peak hours
+        x.loc[x["Peak"], "Out"] -= regions[region]["incoming_factors"][1]  # Peak adder is the second factor
+        # Divide by multiplier
+        x["Out"] /= regions[region]["incoming_factors"][0]
+    else:
+        # If we're starting with wholesale prices, apply the full formula
+        # Apply multiplier first
+        x["Out"] *= regions[region]["incoming_factors"][0]
+        # Add peak adder only during peak hours
+        x.loc[x["Peak"], "Out"] += regions[region]["incoming_factors"][1]  # Peak adder is the second factor
+        # Add VAT
+        x["Out"] *= 1.05
+        # Cap at 100p/kWh
+        x["Out"] = x["Out"].clip(upper=100)
+
+    if reverse:
+        name = "day_ahead"
+    else:
+        name = "agile_incoming"
+
+    return x["Out"].rename(name)
+
+
 def df_to_Model(df, myModel, update=False):
     df = df.dropna()
     for index, row in df.iterrows():
-        if update:
-            try:
-                obj = myModel.objects.get(date_time=index)
-                for key, value in row.items():
-                    setattr(obj, key, value)
-                obj.save()
-            except myModel.DoesNotExist:
-                new_values = {"date_time": index}
-                new_values.update(row)
-                obj = myModel(**new_values)
-                obj.save()
-        else:
-            try:
-                new_values = {"date_time": index}
-                new_values.update(row)
-                obj = myModel(**new_values)
-                obj.save()
-            except:
-                print(f"Failed to update {myModel} with data for datetime {index}")
+        try:
+            new_values = {"date_time": index}
+            new_values.update(row.to_dict())
+            
+            # Use update_or_create with date_time and forecast/region as unique identifiers
+            if myModel == AgileData:
+                obj, created = myModel.objects.update_or_create(
+                    date_time=index,
+                    forecast=new_values['forecast'],
+                    region=new_values['region'],
+                    defaults=new_values
+                )
+            elif myModel == ForecastData:
+                obj, created = myModel.objects.update_or_create(
+                    date_time=index,
+                    forecast=new_values['forecast'],
+                    defaults=new_values
+                )
+            else:
+                # For other models, just use date_time as unique identifier
+                obj, created = myModel.objects.update_or_create(
+                    date_time=index,
+                    defaults=new_values
+                )
+        except Exception as e:
+            print(f"Error updating {myModel} with data for datetime {index}: {str(e)}")
 
 
 def model_to_df(myModel):
