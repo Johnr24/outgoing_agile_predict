@@ -5,7 +5,7 @@ from django.urls import reverse
 class Forecasts(models.Model):
     name = models.CharField(unique=True, max_length=64)
     created_at = models.DateTimeField(auto_now_add=True)
-    source = models.CharField(max_length=32, default='manual')  # 'manual' or 'cron'
+    source = models.CharField(max_length=32, default='')  # No longer using manual/cron distinction
 
     def __str__(self):
         return self.name

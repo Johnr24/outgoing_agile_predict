@@ -349,10 +349,7 @@ class Command(BaseCommand):
                     fc = fc.drop(day_ahead_cols, axis=1)
                     fc.drop(["time", "day_of_week", "day_ahead_low", "day_ahead_high"], axis=1, inplace=True)
 
-                    # Determine if this is a cron job by checking if the script is being run by cron
-                    is_cron = 'CRON' in os.environ
-                    
-                    this_forecast = Forecasts(name=new_name, source='cron' if is_cron else 'manual')
+                    this_forecast = Forecasts(name=new_name)
                     this_forecast.save()
                     fc["forecast"] = this_forecast
                     ag["forecast"] = this_forecast
