@@ -454,9 +454,24 @@ class DataSet:
         return df, None
 
 
-def get_agile(start=pd.Timestamp("2023-07-01"), tz="GB", region="G"):
+def get_agile(start=pd.Timestamp("2023-07-01"), tz="GB", region="G", direction="outgoing"):
     start = pd.Timestamp(start).tz_convert("UTC")
-    product = "AGILE-OUTGOING-19-05-13"
+    
+    # Define the transition date for the new tariff
+    transition_2024 = pd.Timestamp("2024-10-01", tz="GB")
+    
+    # Use correct product code based on direction and date
+    if direction == "outgoing":
+        if start >= transition_2024:
+            product = "AGILE-OUTGOING-BB-23-02-28"
+        else:
+            product = "AGILE-OUTGOING-19-05-13"
+    else:  # incoming/import
+        if start >= transition_2024:
+            product = "AGILE-24-10-01"
+        else:
+            product = "AGILE-23-12-06"
+    
     df = pd.DataFrame()
     url = f"{OCTOPUS_PRODUCT_URL}{product}"
 
@@ -483,14 +498,14 @@ def get_agile(start=pd.Timestamp("2023-07-01"), tz="GB", region="G"):
 
     if not x:
         print("No Agile tariff data found for the specified time period")
-        return pd.Series(name="agile")
+        return pd.Series(name="agile_outgoing" if direction == "outgoing" else "agile_incoming")
 
     df = pd.DataFrame(x).set_index("valid_from")[["value_inc_vat"]]
     df.index = pd.to_datetime(df.index)
     df.index = df.index.tz_convert(tz)
     df = df.sort_index()["value_inc_vat"]
     df = df[~df.index.duplicated()]
-    return df.rename("agile")
+    return df.rename("agile_outgoing" if direction == "outgoing" else "agile_incoming")
 
 
 def day_ahead_to_agile(df, reverse=False, region="G"):

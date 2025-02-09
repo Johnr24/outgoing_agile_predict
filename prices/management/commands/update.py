@@ -185,16 +185,17 @@ class Command(BaseCommand):
             print("Getting Historic Prices")
 
         prices, start = model_to_df(PriceHistory)
-        agile = get_agile(start=start)
-        day_ahead = day_ahead_to_agile(agile, reverse=True)
         
-        # Calculate both outgoing and incoming prices
-        agile_outgoing = day_ahead_to_agile(day_ahead)
-        agile_incoming = day_ahead_to_agile_incoming(day_ahead)
+        # Get both outgoing and incoming rates from Octopus API
+        agile_outgoing = get_agile(start=start, direction="outgoing")
+        agile_incoming = get_agile(start=start, direction="incoming")
+        
+        # Convert outgoing rates to day ahead wholesale prices
+        day_ahead = day_ahead_to_agile(agile_outgoing, reverse=True)
         
         new_prices = pd.concat([
             day_ahead.rename('day_ahead'), 
-            agile_outgoing.rename('agile'), 
+            agile_outgoing.rename('agile_outgoing'), 
             agile_incoming.rename('agile_incoming')
         ], axis=1)
         if len(prices) > 0:
@@ -268,7 +269,7 @@ class Command(BaseCommand):
                         cols = hist.drop(drop_cols, axis=1).columns
 
                         X = hist[cols].iloc[-48 * np.random.randint(min_hist, max_hist) :]
-                        y_outgoing = prices["agile"].loc[X.index]  # Train directly on retail outgoing prices
+                        y_outgoing = prices["agile_outgoing"].loc[X.index]  # Train directly on retail outgoing prices
                         y_incoming = prices["agile_incoming"].loc[X.index]  # Train directly on retail incoming prices
 
                         if not no_hist:
@@ -299,12 +300,18 @@ class Command(BaseCommand):
                                         df = df.iloc[samples]
 
                                         X1.append(df[cols])
-                                        y1_outgoing.append(prices["agile"].loc[df.index])  # Train on retail outgoing prices
+                                        y1_outgoing.append(prices["agile_outgoing"].loc[df.index])  # Train on retail outgoing prices
                                         y1_incoming.append(prices["agile_incoming"].loc[df.index])  # Train on retail incoming prices
 
                         X1 = pd.concat(X1)
                         y1_outgoing = pd.concat(y1_outgoing)
                         y1_incoming = pd.concat(y1_incoming)
+
+                        # Remove any rows with NaN values in either target
+                        valid_mask = ~(y1_outgoing.isna() | y1_incoming.isna())
+                        X1 = X1[valid_mask]
+                        y1_outgoing = y1_outgoing[valid_mask]
+                        y1_incoming = y1_incoming[valid_mask]
 
                         # Train outgoing model
                         model_outgoing = xg.XGBRegressor(
@@ -329,7 +336,7 @@ class Command(BaseCommand):
                         model_agile_incoming = pd.Series(index=y1_incoming.index, data=model_incoming.predict(X1))
 
                         # Calculate errors - now comparing retail prices directly
-                        rmse_outgoing = MSE(model_agile_outgoing, prices["agile"].loc[X1.index]) ** 0.5
+                        rmse_outgoing = MSE(model_agile_outgoing, prices["agile_outgoing"].loc[X1.index]) ** 0.5
                         rmse_incoming = MSE(model_agile_incoming, prices["agile_incoming"].loc[X1.index]) ** 0.5
 
                         print(f"\nIteration: {i+1}", end="")
@@ -356,12 +363,18 @@ class Command(BaseCommand):
                         'agile_outgoing_high': outgoing_df.quantile(0.9, axis=1) if iters > 9 else outgoing_df.max(axis=1)
                     })
                     
+                    # Ensure timezone consistency for outgoing stats
+                    outgoing_stats.index = outgoing_stats.index.tz_convert("GB")
+                    
                     # Calculate statistics for incoming predictions
                     incoming_stats = pd.DataFrame({
                         'agile_incoming': incoming_df.mean(axis=1),
                         'agile_incoming_low': incoming_df.quantile(0.1, axis=1) if iters > 9 else incoming_df.min(axis=1),
                         'agile_incoming_high': incoming_df.quantile(0.9, axis=1) if iters > 9 else incoming_df.max(axis=1)
                     })
+                    
+                    # Ensure timezone consistency for incoming stats
+                    incoming_stats.index = incoming_stats.index.tz_convert("GB")
                     
                     # Combine all results
                     results = pd.concat([fc, outgoing_stats, incoming_stats], axis=1)

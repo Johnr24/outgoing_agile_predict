@@ -20,8 +20,11 @@ class Nordpool(models.Model):
 class PriceHistory(models.Model):
     date_time = models.DateTimeField(unique=True)
     day_ahead = models.FloatField()
-    agile = models.FloatField()
-    agile_incoming = models.FloatField(default=0)  # Store incoming prices separately
+    agile_outgoing = models.FloatField()  # Renamed from agile
+    agile_incoming = models.FloatField()  # Store incoming prices separately
+
+    class Meta:
+        ordering = ["date_time"]
 
 
 class AgileData(models.Model):

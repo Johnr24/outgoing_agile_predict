@@ -48,8 +48,8 @@ class StatsView(TemplateView):
         df = pd.DataFrame(
             index=[obj.date_time for obj in agile_actuals_objects],
             data={
-                "actuals_outgoing": [obj.agile for obj in agile_actuals_objects],
-                "actuals_incoming": [obj.agile * 2 for obj in agile_actuals_objects],  # Approximate for display
+                "actuals_outgoing": [obj.agile_outgoing for obj in agile_actuals_objects],
+                "actuals_incoming": [obj.agile_incoming for obj in agile_actuals_objects],
             },
         )
 
@@ -71,8 +71,7 @@ class StatsView(TemplateView):
             forecast_created_at = pd.Timestamp(Forecasts.objects.filter(id=forecast[0])[0].created_at).tz_convert("GB")
             forecast_after = (
                 pd.Timestamp.combine(forecast_created_at.date(), pd.Timestamp("22:00").time())
-                .tz_localize("UTC")
-                .tz_convert("GB")
+                .tz_localize("GB")
             )
 
             if forecast_created_at.hour >= 16:
@@ -244,18 +243,31 @@ class GraphFormView(FormView):
         # Get historical prices
         p = PriceHistory.objects.filter(date_time__gte=start).order_by("-date_time")
         day_ahead = pd.Series(index=[a.date_time for a in p], data=[a.day_ahead for a in p])
-        agile = day_ahead_to_agile(day_ahead, region=region).sort_index()
+        agile_outgoing = pd.Series(index=[a.date_time for a in p], data=[a.agile_outgoing for a in p])
+        agile_incoming = pd.Series(index=[a.date_time for a in p], data=[a.agile_incoming for a in p])
 
-        # Add the actual price trace to both plots
+        # Add the actual price traces to both plots
         figure.add_trace(
             go.Scatter(
-                x=agile.loc[:forecast_end].index.tz_convert("GB"),
-                y=agile.loc[:forecast_end],
+                x=agile_outgoing.loc[:forecast_end].index.tz_convert("GB"),
+                y=agile_outgoing.loc[:forecast_end],
                 marker={"symbol": 104, "size": 1, "color": "white"},
                 mode="lines",
                 name="Actual Outgoing",
             ),
             row=1,
+            col=1,
+        )
+
+        figure.add_trace(
+            go.Scatter(
+                x=agile_incoming.loc[:forecast_end].index.tz_convert("GB"),
+                y=agile_incoming.loc[:forecast_end],
+                marker={"symbol": 104, "size": 1, "color": "white"},
+                mode="lines",
+                name="Actual Incoming",
+            ),
+            row=2,
             col=1,
         )
 
@@ -270,17 +282,17 @@ class GraphFormView(FormView):
                 else:
                     d = list(d.filter(date_time__lte=limit))
 
-                x = [a.date_time for a in d if (a.date_time >= agile.index[-1] or show_overlap)]
-                y = [a.agile_pred for a in d if (a.date_time >= agile.index[-1] or show_overlap)]
-                y_incoming = [a.agile_incoming_pred for a in d if (a.date_time >= agile.index[-1] or show_overlap)]
+                x = [a.date_time for a in d if (a.date_time >= agile_outgoing.index[-1] or show_overlap)]
+                y = [a.agile_pred for a in d if (a.date_time >= agile_outgoing.index[-1] or show_overlap)]
+                y_incoming = [a.agile_incoming_pred for a in d if (a.date_time >= agile_outgoing.index[-1] or show_overlap)]
 
                 df = pd.Series(index=pd.to_datetime(x), data=y).sort_index()
                 df.index = df.index.tz_convert("GB")
-                df = df.loc[agile.index[0] :]
+                df = df.loc[agile_outgoing.index[0] :]
 
                 df_incoming = pd.Series(index=pd.to_datetime(x), data=y_incoming).sort_index()
                 df_incoming.index = df_incoming.index.tz_convert("GB")
-                df_incoming = df_incoming.loc[agile.index[0] :]
+                df_incoming = df_incoming.loc[agile_outgoing.index[0] :]
 
                 # Plot outgoing prediction
                 figure.add_trace(
@@ -311,11 +323,15 @@ class GraphFormView(FormView):
                 )
 
                 if (width == 3) and (d[0].agile_high != d[0].agile_low and show_range):
+                    # Get timestamps and ensure they're in GB timezone
+                    band_times = [pd.Timestamp(a.date_time).tz_convert("GB") 
+                                for a in d if (a.date_time >= agile_outgoing.index[-1] or show_overlap)]
+                    
                     # Add outgoing range
                     figure.add_trace(
                         go.Scatter(
-                            x=df.index,
-                            y=[a.agile_low for a in d if (a.date_time >= agile.index[-1] or show_overlap)],
+                            x=band_times,
+                            y=[a.agile_low for a in d if (a.date_time >= agile_outgoing.index[-1] or show_overlap)],
                             marker={"symbol": 104, "size": 10},
                             mode="lines",
                             line=dict(width=1, color="red"),
@@ -327,8 +343,8 @@ class GraphFormView(FormView):
                     )
                     figure.add_trace(
                         go.Scatter(
-                            x=df.index,
-                            y=[a.agile_high for a in d if (a.date_time >= agile.index[-1] or show_overlap)],
+                            x=band_times,
+                            y=[a.agile_high for a in d if (a.date_time >= agile_outgoing.index[-1] or show_overlap)],
                             marker={"symbol": 104, "size": 10},
                             mode="lines",
                             line=dict(width=1, color="red"),
@@ -341,11 +357,11 @@ class GraphFormView(FormView):
                         col=1,
                     )
 
-                    # Add incoming range
+                    # Add incoming range with same timezone handling
                     figure.add_trace(
                         go.Scatter(
-                            x=df_incoming.index,
-                            y=[a.agile_incoming_low for a in d if (a.date_time >= agile.index[-1] or show_overlap)],
+                            x=band_times,
+                            y=[a.agile_incoming_low for a in d if (a.date_time >= agile_outgoing.index[-1] or show_overlap)],
                             marker={"symbol": 104, "size": 10},
                             mode="lines",
                             line=dict(width=1, color="blue"),
@@ -357,8 +373,8 @@ class GraphFormView(FormView):
                     )
                     figure.add_trace(
                         go.Scatter(
-                            x=df_incoming.index,
-                            y=[a.agile_incoming_high for a in d if (a.date_time >= agile.index[-1] or show_overlap)],
+                            x=band_times,
+                            y=[a.agile_incoming_high for a in d if (a.date_time >= agile_outgoing.index[-1] or show_overlap)],
                             marker={"symbol": 104, "size": 10},
                             mode="lines",
                             line=dict(width=1, color="blue"),
