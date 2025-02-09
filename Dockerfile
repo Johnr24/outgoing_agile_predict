@@ -5,17 +5,15 @@ FROM python:${PYTHON_VERSION}
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
-# install psycopg2 dependencies and netcat
+# install dependencies
 RUN apt-get update && apt-get install -y \
     libpq-dev \
     gcc \
     netcat-openbsd \
     dos2unix \
-    cron \
     && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /code
-
 WORKDIR /code
 
 COPY requirements.txt /tmp/requirements.txt
@@ -33,13 +31,10 @@ COPY entrypoint.sh /code/
 RUN chmod +x /code/entrypoint.sh && \
     dos2unix /code/entrypoint.sh
 
-# Setup cron job
-RUN echo "15 6,10,16,22 * * * CRON=1 cd /code && /usr/local/bin/python /code/manage.py update >> /var/log/cron.log 2>&1" > /etc/cron.d/update-cron && \
-    chmod 0644 /etc/cron.d/update-cron && \
-    crontab /etc/cron.d/update-cron
-
-# Create log file
-RUN touch /var/log/cron.log
+# Create log directory
+RUN mkdir -p /var/log/app && \
+    touch /var/log/app/update.log && \
+    chmod 644 /var/log/app/update.log
 
 EXPOSE 8000
 

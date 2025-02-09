@@ -12,6 +12,19 @@ services:
     volumes:
       - .:/code
       - /Volumes/Backup3/Docker/agileoutgoingpredict/static_volume:/code/static
+    labels:
+      ofelia.enabled: "true"
+      ofelia.job-exec.app-update.schedule: "23 00,02,04,06,08,10,12,14,16,20,22 * * *"
+      ofelia.job-exec.app-update.command: "python manage.py update"
+      ofelia.job-exec.app-update.user: "root"
+
+  scheduler:
+    image: mcuadros/ofelia:latest
+    depends_on:
+      - web
+    command: daemon --docker
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
 
   db:
      image: postgres:16.1-alpine3.19
