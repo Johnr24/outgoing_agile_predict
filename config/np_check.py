@@ -93,6 +93,12 @@ def day_ahead_to_agile(df, reverse=False, region="G"):
     x["Peak"] = (x.index.hour >= 16) & (x.index.hour < 19)
     
     if reverse:
+        # If we're starting with Octopus API prices, they're already processed
+        # So we just return them as is
+        if isinstance(df, pd.Series) and df.name == "agile":
+            return x["Out"].rename("day_ahead")
+            
+        # Otherwise, we're converting our calculated Agile prices back to wholesale
         # Remove peak adder first
         x.loc[x["Peak"], "Out"] -= regions[region]["factors"][2]
         # Remove all-day adder
@@ -100,6 +106,7 @@ def day_ahead_to_agile(df, reverse=False, region="G"):
         # Divide by multiplier
         x["Out"] /= regions[region]["factors"][0]
     else:
+        # If we're starting with wholesale prices, apply the full formula
         # Apply multiplier first
         x["Out"] *= regions[region]["factors"][0]
         # Add all-day adder

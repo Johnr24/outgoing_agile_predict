@@ -502,16 +502,28 @@ def day_ahead_to_agile(df, reverse=False, region="G"):
     x = pd.DataFrame(df).set_axis(["In"], axis=1)
     x["Out"] = x["In"]
     x["Peak"] = (x.index.hour >= 16) & (x.index.hour < 19)
+    
     if reverse:
-        x.loc[x["Peak"], "Out"] -= regions[region]["factors"][1]
+        # We're converting Agile prices back to wholesale prices
+        # First remove peak adder
+        x.loc[x["Peak"], "Out"] -= regions[region]["factors"][2]
+        # Remove all-day adder
+        x["Out"] -= regions[region]["factors"][1]
+        # Divide by multiplier
         x["Out"] /= regions[region]["factors"][0]
-    else:
-        x["Out"] *= regions[region]["factors"][0]
-        x.loc[x["Peak"], "Out"] += regions[region]["factors"][1]
-
-    if reverse:
+        # Ensure no negative prices
+        x["Out"] = x["Out"].clip(lower=0)
         name = "day_ahead"
     else:
+        # We're converting wholesale prices to Agile prices
+        # Apply multiplier first
+        x["Out"] *= regions[region]["factors"][0]
+        # Add all-day adder
+        x["Out"] += regions[region]["factors"][1]
+        # Add peak adder
+        x.loc[x["Peak"], "Out"] += regions[region]["factors"][2]
+        # Floor at 0
+        x["Out"] = x["Out"].clip(lower=0)
         name = "agile"
 
     return x["Out"].rename(name)

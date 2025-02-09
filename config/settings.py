@@ -95,7 +95,7 @@ DATABASES = {
     #     "ENGINE": "django.db.backends.sqlite3",
     #     "NAME": BASE_DIR / "db.sqlite3",
     # }
-    "default": env.dj_db_url("DATABASE_URL", default="sqlite:///db.sqlite3"),
+    "default": env.dj_db_url("DATABASE_URL", default="postgresql://postgres:postgres@localhost:5432/mysite"),
 }
 # DATABASES = {
 #     "default": dj_database_url.config(  # Replace this value with your local database's connection string.
@@ -202,63 +202,63 @@ GLOBAL_SETTINGS = {
     "REGIONS": {
         "X": {
             "name": "National Average",
-            "factors": (0.2136, 12.21),
+            "factors": (0.95, 1.00, 6.00),
         },
         "A": {
             "name": "Eastern England",
-            "factors": (0.21, 13),
+            "factors": (0.95, 1.09, 7.04),
         },
         "B": {
             "name": "East Midlands",
-            "factors": (0.20, 14),
+            "factors": (0.94, 0.78, 6.27),
         },
         "C": {
             "name": "London",
-            "factors": (0.20, 12),
+            "factors": (0.95, 1.30, 5.93),
         },
         "D": {
             "name": "Merseyside and Northern Wales",
-            "factors": (0.22, 13),
+            "factors": (0.97, 1.26, 5.97),
         },
         "E": {
             "name": "West Midlands",
-            "factors": (0.21, 11),
+            "factors": (0.94, 0.77, 6.50),
         },
         "F": {
             "name": "North Eastern England",
-            "factors": (0.21, 12),
+            "factors": (0.95, 0.87, 4.88),
         },
         "G": {
             "name": "North Western England",
-            "factors": (0.21, 12),
+            "factors": (0.96, 1.10, 5.89),
         },
         "H": {
             "name": "Southern England",
-            "factors": (0.21, 12),
+            "factors": (0.94, 0.93, 7.05),
         },
         "J": {
             "name": "South Eastern England",
-            "factors": (0.22, 12),
+            "factors": (0.94, 1.09, 7.41),
         },
         "K": {
             "name": "Southern Wales",
-            "factors": (0.22, 12),
+            "factors": (0.94, 0.97, 5.46),
         },
         "L": {
             "name": "South Western England",
-            "factors": (0.23, 11),
+            "factors": (0.93, 0.83, 7.14),
         },
         "M": {
             "name": "Yorkshire",
-            "factors": (0.20, 13),
+            "factors": (0.96, 0.72, 5.78),
         },
         "N": {
             "name": "Southern Scotland",
-            "factors": (0.21, 13),
+            "factors": (0.97, 0.90, 3.85),
         },
         "P": {
             "name": "Northern Scotland",
-            "factors": (0.24, 12),
+            "factors": (0.96, 1.36, 2.68),
         },
     },
 }

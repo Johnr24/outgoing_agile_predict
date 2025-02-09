@@ -15,10 +15,6 @@ python manage.py makemigrations
 echo "Applying migrations..."
 python manage.py migrate --noinput
 
-# Start cron service
-echo "Starting cron service..."
-service cron start
-
 # Start server
 echo "Starting server..."
 python manage.py runserver 0.0.0.0:8000 
